@@ -7,7 +7,7 @@ use HTTP::Request::Common;
 use Getopt::Long;
 use English;
 
-#    Copyright 2007 Cd-MaN
+#    Copyright 2007-2009 Cd-MaN
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
 #    the Free Software Foundation; either version 3 of the License, or
@@ -26,17 +26,20 @@ our $version = "0.3";
 our $verbose;
 our $display_help;
 our $distribute;
-our ($output_bbcode, $output_csv, $ouput_tab, $output_html);
+our ($output_bbcode, $output_csv, $ouput_tab, $output_html, $use_ssl);
 our $log_file;
 
-if (!GetOptions("verbose|v" => \$verbose,
-  "help|h" => \$display_help,
+if (!GetOptions(
+  "verbose|v"    => \$verbose,
+  "help|h"       => \$display_help,
   "no-distrib|n" => \$distribute,
-  "bb-code|b" => \$output_bbcode, 
-  "csv|c" => \$output_csv, 
-  "tab|t" => \$ouput_tab, 
-  "html|m" => \$output_html,
-  "log|l=s" => \$log_file) || $display_help) {
+  "bb-code|b"    => \$output_bbcode, 
+  "csv|c"        => \$output_csv, 
+  "tab|t"        => \$ouput_tab, 
+  "html|m"       => \$output_html,
+  "ssl|s"        => \$use_ssl,
+  "log|l=s"      => \$log_file,
+  ) || $display_help) {
   help();
   exit;
 }
@@ -91,7 +94,7 @@ foreach my $glob_str (@ARGV) {
         }
       }
       if (!$found_in_cache) {
-        my $result = process_file($file_name);				
+        my $result = process_file($file_name, $use_ssl);				
         $processed_cache{$file_name} = {
           'MD5' => $file_md5,
           'size' => $file_size,
@@ -284,6 +287,7 @@ Options:
   -c --csv        Output the result as CSV
   -t --tab        Output the result as tab delimited file
   -m --html       Output the result as HTML	
+  -s --ssl        Use SSL
   -l --log=[file] Save the output (the result of the scans) to the specified day
 
 File masks:
@@ -292,11 +296,12 @@ File masks:
 END
 }
 
-our $last_printed_line_len = 0;
+our $last_printed_line_len;
 
 #used to overwrite the lines (for progress bars, etc)
 sub print_line {
   return unless ($verbose);
+  $last_printed_line_len = 0 unless defined $last_printed_line_len;
   
   print STDERR "\r", " " x $last_printed_line_len, "\r";
   print STDERR join("", @_);
@@ -304,10 +309,12 @@ sub print_line {
  }
 
 sub process_file {
-  my $file_name = shift;
+  my ($file_name, $use_ssl) = @_;
   die("Tried to process elemetn \"$file_name\" which is not a file!\n") if (! -f $file_name);
+  my $protocol = $use_ssl ? 'https' : 'http';  
   
-  my $file_upload_request = POST 'http://www.virustotal.com/vt/en/recepcionf',
+  
+  my $file_upload_request = POST "$protocol://www.virustotal.com/vt/en/recepcionf",
     [ 
       'archivo' => [ $file_name ],
       'distribuir' => $distribute
@@ -335,7 +342,9 @@ sub process_file {
   }
   
   my $response = $browser->request($file_upload_request);
-  print_line("");  
+  print_line('');
+  
+  die("Request failed: " . $response->status_line . "\n") unless $response->header('Location');  
   
   die ("Response header does not contain expected location header!\n") 
     unless ($response->header('Location') =~ /\/([a-f0-9]+)$/i);
@@ -343,8 +352,8 @@ sub process_file {
   
   print STDERR "Upload finished, waiting for scanning\n" if ($verbose);
   
-  my $scan_request = GET "http://www.virustotal.com/vt/en/resultado?$file_id-0-0",
-    'Referrer' => "http://www.virustotal.com/resultado.html?$file_id";
+  my $scan_request = GET "$protocol://www.virustotal.com/vt/en/resultado?$file_id-0-0",
+    'Referrer' => "$protocol://www.virustotal.com/resultado.html?$file_id";
   
   my %results;
   my $wait_timeout = 30; #in seconds;
