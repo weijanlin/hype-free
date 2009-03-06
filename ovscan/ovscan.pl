@@ -26,9 +26,61 @@ our $version = "0.3";
 our $verbose;
 our $display_help;
 our $distribute;
-our ($output_bbcode, $output_csv, $ouput_tab, $output_html, $use_ssl);
+our ($output_bbcode, $output_csv, $ouput_tab, $output_html, $use_ssl, $scan_site);
 our $log_file;
 
+our $sites = {
+	vt => {
+		name     => 'VirusTotal',
+		url      => 'http://www.virustotal.com/',
+		has_ssl  => 1,
+		has_nd   => 1,
+		func     => \&process_file_vt,
+		max_size => 10_000_000,
+	},
+	jotti => {
+		name     => 'Jotti\'s malware scan',
+		url      => 'http://virusscan.jotti.org/',
+		has_ssl  => 0,
+		has_nd   => 0,
+		func     => \&process_file_jotti,
+		max_size => 10_000_000,		
+	},
+	virus => {
+		name     => 'Virus.Org',
+		url      => 'http://scanner.virus.org/',
+		has_ssl  => 0,
+		has_nd   => 1,
+		func     => \&process_file_vt,
+		max_size => 5_000_000,		
+	},
+	vchief => {
+		name     => 'VirusChief',
+		url      => 'http://www.viruschief.com/',
+		has_ssl  => 0,
+		has_nd   => 0,
+		func     => \&process_file_vt,
+		max_size => 10_000_000,		
+	},	
+	fb => {
+		name     => 'Filterbit',
+		url      => 'http://www.filterbit.com/',
+		has_ssl  => 0,
+		has_nd   => 0,
+		func     => \&process_file_vt,
+		max_size => 20_000_000,		
+	},
+	virscan => {
+		name     => 'VirSCAN',
+		url      => 'http://www.virscan.org/',
+		has_ssl  => 0,
+		has_nd   => 0,
+		func     => \&process_file_vt,
+		max_size => 10_000_000,		
+	},	
+};
+
+$scan_site = 'vt';
 if (!GetOptions(
   "verbose|v"    => \$verbose,
   "help|h"       => \$display_help,
@@ -39,7 +91,8 @@ if (!GetOptions(
   "html|m"       => \$output_html,
   "ssl|s"        => \$use_ssl,
   "log|l=s"      => \$log_file,
-  ) || $display_help) {
+  "site|i=s"      => \$scan_site,
+  ) || $display_help || 0 == scalar(@ARGV)) {
   help();
   exit;
 }
@@ -49,6 +102,21 @@ if (defined($log_file)) {
   open FOUT, '>', $log_file;
 } else {
   open FOUT, ">&STDOUT";
+}
+
+my $scan_site_error;
+if (!$sites->{$scan_site}) {
+  $scan_site_error = "Unknwon site '$scan_site'. Supported sites: " . join(' ', keys %$sites);
+}
+elsif (!$distribute && !$sites->{$scan_site}->{has_nd}) {	
+  $scan_site_error = "Site doesn't support no-distribute"; 	
+}
+elsif ($use_ssl && !$sites->{$scan_site}->{has_ssl}) {
+	$scan_site_error = "Site doesn't support ssl";
+}
+if (defined $scan_site_error) {
+	print STDERR $scan_site_error, "\n";
+	exit 1; 
 }
 
 my %processed_cache;
@@ -61,8 +129,9 @@ $browser->env_proxy();
 foreach my $glob_str (@ARGV) {
   foreach my $file_name (glob($glob_str)) {
     next unless (-f $file_name);
-    if (-s $file_name > 10_000_000) {
-      print STDERR "The maximum file size allowed is 10M. The \"$file_name\" exceeds this limit!\n";
+    if (-s $file_name > $sites->{$scan_site}->{max_size}) {
+      print STDERR "The maximum file size allowed is ", $sites->{$scan_site}->{max_size} / 1_000_000,
+      	". The \"$file_name\" exceeds this limit!\n";
       next;
     }
     if (-s $file_name == 0) {
@@ -94,7 +163,8 @@ foreach my $glob_str (@ARGV) {
         }
       }
       if (!$found_in_cache) {
-        my $result = process_file($file_name, $use_ssl);				
+      	die("Tried to process element \"$file_name\" which is not a file!\n") if (! -f $file_name);
+        my $result = $sites->{$scan_site}->{func}->($file_name, $use_ssl);				
         $processed_cache{$file_name} = {
           'MD5' => $file_md5,
           'size' => $file_size,
@@ -280,16 +350,26 @@ Usage:
 $0 [options] [file masks]
 
 Options:
-  -n --no-distrib The sample is not distributed to AV vendors
-  -h --help       Displays this help
-  -v --verbose    Output detailed information about the progress
-  -b --bb-code    Output the result as BBCode
-  -c --csv        Output the result as CSV
-  -t --tab        Output the result as tab delimited file
-  -m --html       Output the result as HTML	
-  -s --ssl        Use SSL
-  -l --log=[file] Save the output (the result of the scans) to the specified day
+  -n --no-distrib  The sample is not distributed to AV vendors
+  -h --help        Displays this help
+  -v --verbose     Output detailed information about the progress
+  -b --bb-code     Output the result as BBCode
+  -c --csv         Output the result as CSV
+  -t --tab         Output the result as tab delimited file
+  -m --html        Output the result as HTML	
+  -s --ssl         Use SSL
+  -l --log=[file]  Save the output (the result of the scans) to the specified
+                   file
+  -i --site=[site] Use a site other than the default (VirusTotal) for scanning
+                   Available sites:
+END
 
+  for my $site_name (sort keys %$sites) {
+  	print "                   $site_name (",
+      $sites->{$site_name}->{name}, ': ', $sites->{$site_name}->{url}, ")\n";   	
+  }
+
+  print <<END;
 File masks:
   Specifies a file or a group of files to upload and scan
 
@@ -308,11 +388,32 @@ sub print_line {
   $last_printed_line_len = length(join("", @_));
  }
 
-sub process_file {
-  my ($file_name, $use_ssl) = @_;
-  die("Tried to process elemetn \"$file_name\" which is not a file!\n") if (! -f $file_name);
-  my $protocol = $use_ssl ? 'https' : 'http';  
+sub add_upload_progress {
+  my ($file_upload_request, $file_name) = @_;
+  return unless ($verbose);
   
+  my ($total_size, $sent_size) = (1 + -s $file_name, 0);
+  
+  my $content_generator = $file_upload_request->content();
+  die ("Content expected to be code reference!\n") unless ref($content_generator) eq "CODE";
+  print STDERR "\n";
+  $file_upload_request->content(
+  	sub {
+  	  my $chunk = &$content_generator();
+  	  if (defined $chunk) {
+  	  	$sent_size += length $chunk;
+  	  	my $percentage = $sent_size * 100 / $total_size;
+  	  	$percentage = 100 if ($percentage > 100);
+  	  	print_line(sprintf("%.2f%% uploaded", $percentage));
+  	  }
+  	  return $chunk;
+    }
+  );
+}
+
+sub process_file_vt {
+  my ($file_name, $use_ssl) = @_;  
+  my $protocol = $use_ssl ? 'https' : 'http';    
   
   my $file_upload_request = POST "$protocol://www.virustotal.com/vt/en/recepcionf",
     [ 
@@ -321,25 +422,7 @@ sub process_file {
     ],
     'Content_Type' => 'form-data';
   
-  my ($total_size, $sent_size) = (1 + -s $file_name, 0);
-  
-  if ($verbose) {
-    my $content_generator = $file_upload_request->content();
-    die ("Content expected to be code reference!\n") unless ref($content_generator) eq "CODE";
-    print STDERR "\n";
-    $file_upload_request->content(
-      sub {
-        my $chunk = &$content_generator();
-        if (defined $chunk) {
-          $sent_size += length $chunk;
-          my $percentage = $sent_size * 100 / $total_size;
-          $percentage = 100 if ($percentage > 100);
-          print_line(sprintf("%.2f%% uploaded", $percentage));
-        }
-        return $chunk;
-      }
-    );
-  }
+  add_upload_progress($file_upload_request, $file_name);  
   
   my $response = $browser->request($file_upload_request);
   print_line('');
@@ -377,14 +460,14 @@ sub process_file {
       print_line("Scanning done");
       foreach my $result (@{$response_parsed->[2]}) {
         $results{$result->[0]} = {
-          'version' => $result->[1],
-          'last_update' => $result->[2],
-          'scan_result' => $result->[3]        
+          version     => $result->[1],
+          last_update => $result->[2],
+          scan_result => $result->[3]        
         };
       }
-      $results{'md5'} = $1 if ($response_parsed->[3]->[1]->[0] =~ /([0-9a-fA-F]{32})/);      
-      $results{'sha1'} = $1 if ($response_parsed->[3]->[2]->[0] =~ /([0-9a-fA-F]{40})/);      
-      $results{'size'} = $1 if ($response_parsed->[3]->[0]->[0] =~ /(\d+) bytes/);
+      $results{md5}  = $1 if ($response_parsed->[3]->[1]->[0] =~ /([0-9a-fA-F]{32})/);      
+      $results{sha1} = $1 if ($response_parsed->[3]->[2]->[0] =~ /([0-9a-fA-F]{40})/);      
+      $results{size} = $1 if ($response_parsed->[3]->[0]->[0] =~ /(\d+) bytes/);
       
       last;
     } else {
@@ -400,6 +483,40 @@ sub process_file {
 
   print STDERR "\n" if ($verbose);
   
+  return \%results;		
+}
+
+sub process_file_jotti {
+  my ($file_name) = @_;  
+  
+  my $file_upload_request = POST "http://virusscan.jotti.org/",
+    [ 'scanfile' => [ $file_name ] ],
+    'Content_Type' => 'form-data';
+  
+  add_upload_progress($file_upload_request, $file_name);  
+  
+  my $response = $browser->request($file_upload_request);
+  print_line('');
+  
+  die("Request failed: " . $response->status_line . "\n") unless $response->is_success;
+  
+  my %results;
+  $response = $response->content;  
+  while ($response =~ /scanner([a-z0-9]+).*?='(.*?)'/g) {
+  	my ($engine, $result) = ($1, $2);
+  	$result =~ s/\s+/ /g;
+  	$results{$engine} = {
+  	  version     => 'unknown',
+  	  last_update => 'unknown',
+  	  scan_result => $result, 		
+  	};
+  } 
+  
+  $results{md5}  = md5_file($file_name);     
+  $results{sha1} = 'unknown';      
+  $results{size} = -s $file_name;
+
+  print STDERR "\n" if ($verbose);  
   return \%results;		
 }
 
