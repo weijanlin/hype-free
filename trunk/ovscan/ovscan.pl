@@ -51,7 +51,7 @@ our $sites = {
 		url      => 'http://scanner.virus.org/',
 		has_ssl  => 0,
 		has_nd   => 1,
-		func     => \&process_file_vt,
+		func     => \&process_file_virus,
 		max_size => 5_000_000,		
 	},
 	vchief => {
@@ -125,6 +125,7 @@ our $browser = LWP::UserAgent->new(agent => "unoffical vtuploader/v$version cont
 #grab the proxy settings from the enviroment variables
 #if it's the case
 $browser->env_proxy();
+$browser->cookie_jar({});
 
 foreach my $glob_str (@ARGV) {
   foreach my $file_name (glob($glob_str)) {
@@ -411,6 +412,14 @@ sub add_upload_progress {
   );
 }
 
+sub visual_wait {
+  my $wait_timeout = shift;
+  for (1..$wait_timeout) {
+    print_line ("Waiting for ", ($wait_timeout - $_), " more seconds");
+    sleep 1;
+  }	
+}
+
 sub process_file_vt {
   my ($file_name, $use_ssl) = @_;  
   my $protocol = $use_ssl ? 'https' : 'http';    
@@ -475,10 +484,7 @@ sub process_file_vt {
     }
     print STDERR "\n" if ($verbose);
     
-    for (1..$wait_timeout) {
-      print_line ("Waiting for ", ($wait_timeout - $_), " more seconds");
-      sleep 1;
-    }
+    visual_wait($wait_timeout);
   };
 
   print STDERR "\n" if ($verbose);
@@ -495,14 +501,20 @@ sub process_file_jotti {
   
   add_upload_progress($file_upload_request, $file_name);  
   
-  my $response = $browser->request($file_upload_request);
+  my $complete_data = '';
+  my $response_rx = "scanner([a-z0-9]+).*?='(.*?)'";
+  my $response = $browser->request($file_upload_request, sub {
+  	my $data = shift;
+  	$complete_data .= $data;
+  	my $scan_count = 0; ++$scan_count while ($complete_data =~ /$response_rx/g);
+  	print_line("Scanned with $scan_count engine(s)");
+  });
   print_line('');
   
   die("Request failed: " . $response->status_line . "\n") unless $response->is_success;
   
-  my %results;
-  $response = $response->content;  
-  while ($response =~ /scanner([a-z0-9]+).*?='(.*?)'/g) {
+  my %results;  
+  while ($complete_data =~ /$response_rx/g) {
   	my ($engine, $result) = ($1, $2);
   	$result =~ s/\s+/ /g;
   	$results{$engine} = {
@@ -518,6 +530,45 @@ sub process_file_jotti {
 
   print STDERR "\n" if ($verbose);  
   return \%results;		
+}
+
+sub process_file_virus {
+  my ($file_name) = @_;
+  
+  my $response;
+  my $id_request = GET 'http://scanner.virus.org/advanced';
+  $response = $browser->request($id_request);
+  die("ID request failed: " . $response->status_line . "\n") unless $response->is_success;
+  die("Response didn't contain upload_id") unless $response->content() =~ /\/upload\?upload_id=[^"]+/;
+  
+  my $file_upload_request = POST "http://scanner.virus.org$&",
+    [ 
+      'vscan[uploaded_data]' => [ $file_name ],
+      'vscan[email]'  => '',
+      'vscan[distav]' => $distribute ? 1 : 0,
+      'commit' => 'Upload and Scan',
+    ],
+    'Content_Type' => 'form-data';
+  
+  add_upload_progress($file_upload_request, $file_name);  
+  
+  $response = $browser->request($file_upload_request);
+  print_line('');
+  die("Upload request failed: " . $response->status_line . "\n") unless $response->header('Location');
+  die("Upload request returned unknown redirect") unless $response->header('Location') =~ /f=([a-z0-9]+)&r=([a-z0-9]+)/i;
+  my ($f, $r) = ($1, $2);
+  
+  print STDERR "Upload finished, waiting for scanning\n" if ($verbose);
+
+  my $scan_request = GET "http://scanner.virus.org/scan/progress/$r/$f",
+    'Referrer' => "http://scanner.virus.org/scan?f=$f&r=$r";  
+  my %results;
+  my $wait_timeout = 30; #in seconds;
+  while (1) {
+  	$response = $browser->request($scan_request);
+  	print $response->content(), "\n\n"; 
+  	visual_wait($wait_timeout);
+  }  
 }
 
 sub md5_file {
