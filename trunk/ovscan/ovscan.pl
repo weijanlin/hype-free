@@ -414,9 +414,14 @@ sub add_upload_progress {
 
 sub visual_wait {
   my $wait_timeout = shift;
-  for (1..$wait_timeout) {
-    print_line ("Waiting for ", ($wait_timeout - $_), " more seconds");
+  print "\n" if $verbose;
+  for (1..$wait_timeout) {  	
+    print_line("Waiting for ", ($wait_timeout - $_), " more seconds");
     sleep 1;
+  }
+  if ($verbose) {
+  	print_line('');
+  	print "\b";
   }	
 }
 
@@ -460,11 +465,8 @@ sub process_file_vt {
     } elsif ('REFRESCAR' eq $response_parsed->[0]) {
       print_line("Server requested us to wait");
       my $wait_amount = $response_parsed->[1];
-      print STDERR "\n" if ($verbose);      
-      for (1..$wait_amount) {
-        print_line ("Waiting for ", ($wait_amount - $_), " more seconds");
-        sleep 1;
-      }      
+      print STDERR "\n" if ($verbose);
+      visual_wait($wait_timeout);      
     } elsif ('TERMINADO' eq $response_parsed->[0]) {
       print_line("Scanning done");
       foreach my $result (@{$response_parsed->[2]}) {
@@ -557,16 +559,23 @@ sub process_file_virus {
   die("Upload request failed: " . $response->status_line . "\n") unless $response->header('Location');
   die("Upload request returned unknown redirect") unless $response->header('Location') =~ /f=([a-z0-9]+)&r=([a-z0-9]+)/i;
   my ($f, $r) = ($1, $2);
+  my $rpage_request = GET $response->header('Location');
+  $response = $browser->request($rpage_request);
+  die("Response page request failed: " . $response->status_line . "\n") unless $response->is_success;
   
   print STDERR "Upload finished, waiting for scanning\n" if ($verbose);
 
-  my $scan_request = GET "http://scanner.virus.org/scan/progress/$r/$f",
-    'Referrer' => "http://scanner.virus.org/scan?f=$f&r=$r";  
+  my $scan_request = POST "http://scanner.virus.org/scan/progress/$r/$f", [],
+    'Referrer' => "http://scanner.virus.org/scan?f=$f&r=$r",
+    'Accept' => 'text/javascript, text/html, application/xml, text/xml, */*',        
+    'X-requested-with' => 'XMLHttpRequest';  
   my %results;
-  my $wait_timeout = 30; #in seconds;
+  my $wait_timeout = 10; #in seconds;
   while (1) {
   	$response = $browser->request($scan_request);
-  	print $response->content(), "\n\n"; 
+  	my $response_content = $response->content();
+  	$response_content =~ /statusBar\(\s*".*?"\s*,\s*"(.*?)".*?setPercentage\(\s*".*?"\s*,\s*(\d+)/s;
+  	print_line("Status: $1, Percent complete: $2%");  	  	 
   	visual_wait($wait_timeout);
   }  
 }
