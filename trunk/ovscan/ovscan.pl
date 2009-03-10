@@ -377,17 +377,17 @@ File masks:
 END
 }
 
-our $last_printed_line_len;
+our $last_printed_line;
 
 #used to overwrite the lines (for progress bars, etc)
 sub print_line {
   return unless ($verbose);
-  $last_printed_line_len = 0 unless defined $last_printed_line_len;
+  $last_printed_line = '' unless defined $last_printed_line;
   
-  print STDERR "\r", " " x $last_printed_line_len, "\r";
-  print STDERR join("", @_);
-  $last_printed_line_len = length(join("", @_));
- }
+  print STDERR "\r", " " x (length $last_printed_line), "\r";
+  $last_printed_line = join("", @_);
+  print STDERR $last_printed_line;  
+}
 
 sub add_upload_progress {
   my ($file_upload_request, $file_name) = @_;
@@ -414,15 +414,12 @@ sub add_upload_progress {
 
 sub visual_wait {
   my $wait_timeout = shift;
-  print "\n" if $verbose;
+  my $last_line = $last_printed_line;
   for (1..$wait_timeout) {  	
-    print_line("Waiting for ", ($wait_timeout - $_), " more seconds");
+    print_line("Waiting for ", ($wait_timeout - $_), " more seconds [", $last_line, "]");
     sleep 1;
   }
-  if ($verbose) {
-  	print_line('');
-  	print "\b";
-  }	
+  print_line($last_line);
 }
 
 sub process_file_vt {
