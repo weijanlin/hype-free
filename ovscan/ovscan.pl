@@ -98,10 +98,11 @@ if (!GetOptions(
 }
 $distribute = !$distribute;
 
+our $fout;
 if (defined($log_file)) {
-  open FOUT, '>', $log_file;
+  open $fout, '>', $log_file;
 } else {
-  open FOUT, ">&STDOUT";
+  open $fout, ">&STDOUT";
 }
 
 my $scan_site_error;
@@ -217,7 +218,7 @@ if ($output_csv || $ouput_tab) {
   );
   @columns = map { quote_elements($_) } @columns if ($output_csv);
   
-  print FOUT join($separator, @columns), "\n";
+  print $fout join($separator, @columns), "\n";
 }
 
 foreach my $processed_file (sort keys %processed_cache) {
@@ -232,26 +233,26 @@ foreach my $processed_file (sort keys %processed_cache) {
   my $percent_detection = sprintf("%.2f%%", (0 == $total_count) ? 0.0 : $detection_count * 100.0 / $total_count);
 
   if ($output_bbcode) {
-    print FOUT "[pre]\n";
-    print FOUT "---[ [url]www.virustotal.com[/url] ]---------------------------\n";
-    print FOUT "\nFile $processed_file\n";
-    print FOUT "Detection: $percent_detection ($detection_count/$total_count)\n\n";
+    print $fout "[pre]\n";
+    print $fout "---[ [url]www.virustotal.com[/url] ]---------------------------\n";
+    print $fout "\nFile $processed_file\n";
+    print $fout "Detection: $percent_detection ($detection_count/$total_count)\n\n";
     
-    print FOUT left_align($max_av_engine_name, "Antivirus") . " " . left_align($max_av_version, "Version") . " " .
+    print $fout left_align($max_av_engine_name, "Antivirus") . " " . left_align($max_av_version, "Version") . " " .
       left_align($max_last_update, "Last Update") . " " . left_align($max_result, "Result") . "\n";
     foreach my $av_engine (@engine_name_list) {
       next if (('sha1' eq $av_engine) or ('md5' eq $av_engine) or ('size' eq $av_engine));
       my $result = $file_results{$av_engine}->{'scan_result'};
       $result = "[color=red]no virus found[/color]" if ('-' eq $result);
-      print FOUT left_align($max_av_engine_name, $av_engine) . " " . left_align($max_av_version, $file_results{$av_engine}->{'version'}) . " " .
+      print $fout left_align($max_av_engine_name, $av_engine) . " " . left_align($max_av_version, $file_results{$av_engine}->{'version'}) . " " .
         left_align($max_last_update, $file_results{$av_engine}->{'last_update'}) . " $result\n";
     }
     
-    print FOUT "\nAdditional information\n\n";
-    print FOUT "File size: " . $file_results{'size'} . " bytes\n";
-    print FOUT "MD5: " . $file_results{'md5'} . "\n";
-    print FOUT "SHA1: " . $file_results{'sha1'} . "\n";
-    print FOUT "[/pre]\n\n";
+    print $fout "\nAdditional information\n\n";
+    print $fout "File size: " . $file_results{'size'} . " bytes\n";
+    print $fout "MD5: " . $file_results{'md5'} . "\n";
+    print $fout "SHA1: " . $file_results{'sha1'} . "\n";
+    print $fout "[/pre]\n\n";
   } elsif ($output_csv || $ouput_tab) {
     my @columns = (
       $processed_file,
@@ -273,9 +274,9 @@ foreach my $processed_file (sort keys %processed_cache) {
   
     my $separator = ($output_csv) ? ', ' : "\t";  	
     @columns = map { quote_elements($_) } @columns if ($output_csv);	
-    print FOUT join($separator, @columns), "\n";  	
+    print $fout join($separator, @columns), "\n";  	
   } elsif ($output_html  ) {
-    print FOUT <<END;
+    print $fout <<END;
 <table>
 <caption><a href="http://www.virustotal.com/">VirusTotal</a> scan results</caption>
 <thead>
@@ -287,10 +288,10 @@ foreach my $processed_file (sort keys %processed_cache) {
 END
     foreach my $av_engine (@engine_name_list) {
       next if (('sha1' eq $av_engine) or ('md5' eq $av_engine) or ('size' eq $av_engine));
-      print FOUT "<tr><td>" . $av_engine . "</td><td>" . $file_results{$av_engine}->{'version'} . "</td><td>" . 
+      print $fout "<tr><td>" . $av_engine . "</td><td>" . $file_results{$av_engine}->{'version'} . "</td><td>" . 
         $file_results{$av_engine}->{'last_update'} . "</td><td>" . $file_results{$av_engine}->{'scan_result'} . "</td></tr>\n";
     }						
-    print FOUT <<END;
+    print $fout <<END;
 <tfoot>
 <tr><th colspan="4">Additional information</th></tr>
 <tr>
@@ -309,21 +310,21 @@ END
 </table>		
 END
   } else {
-    print FOUT "\nFile $processed_file\n";
-    print FOUT "Detection: $percent_detection ($detection_count/$total_count)\n\n";
+    print $fout "\nFile $processed_file\n";
+    print $fout "Detection: $percent_detection ($detection_count/$total_count)\n\n";
     
-    print FOUT left_align($max_av_engine_name, "Antivirus") . " " . left_align($max_av_version, "Version") . " " .
+    print $fout left_align($max_av_engine_name, "Antivirus") . " " . left_align($max_av_version, "Version") . " " .
       left_align($max_last_update, "Last Update") . " " . left_align($max_result, "Result") . "\n";
     foreach my $av_engine (@engine_name_list) {
       next if (('sha1' eq $av_engine) or ('md5' eq $av_engine) or ('size' eq $av_engine));
-      print FOUT left_align($max_av_engine_name, $av_engine) . " " . left_align($max_av_version, $file_results{$av_engine}->{'version'}) . " " .
+      print $fout left_align($max_av_engine_name, $av_engine) . " " . left_align($max_av_version, $file_results{$av_engine}->{'version'}) . " " .
         left_align($max_last_update, $file_results{$av_engine}->{'last_update'}) . " " . $file_results{$av_engine}->{'scan_result'} . "\n";
     }
     
-    print FOUT "\nAdditional information\n\n";
-    print FOUT "File size: " . $file_results{'size'} . " bytes\n";
-    print FOUT "MD5: " . $file_results{'md5'} . "\n";
-    print FOUT "SHA1: " . $file_results{'sha1'} . "\n";  
+    print $fout "\nAdditional information\n\n";
+    print $fout "File size: " . $file_results{'size'} . " bytes\n";
+    print $fout "MD5: " . $file_results{'md5'} . "\n";
+    print $fout "SHA1: " . $file_results{'sha1'} . "\n";  
   }
 }
 
@@ -480,8 +481,7 @@ sub process_file_vt {
       last;
     } else {
       die("Unexpected status returned by server: " . $response_parsed->[0] . "\n");
-    }
-    print STDERR "\n" if ($verbose);
+    }    
     
     visual_wait($wait_timeout);
   };
@@ -684,7 +684,7 @@ sub process_file_fb {
 
 sub md5_file {
   my $file_name = shift;
-  open my $f_md5, $file_name or die("Failed to open \"$file_name\" to calculate its MD5: $!\n");
+  open my $f_md5, '<', $file_name or die("Failed to open \"$file_name\" to calculate its MD5: $!\n");
   binmode $f_md5;
   
   my $ctx = Digest::MD5->new;
@@ -699,8 +699,8 @@ sub files_identical {
   return 0 if (! -f $file_name1 || ! -f $file_name2);
   return 0 if (-s $file_name1 != -s $file_name2);
   
-  open my $f1, $file_name1 or die("Failed to open \"$file_name1\": $!\n"); binmode $f1;
-  open my $f2, $file_name2 or die("Failed to open \"$file_name1\": $!\n"); binmode $f2;
+  open my $f1, '<', $file_name1 or die("Failed to open \"$file_name1\": $!\n"); binmode $f1;
+  open my $f2, '<', $file_name2 or die("Failed to open \"$file_name1\": $!\n"); binmode $f2;
   
   while (1) {
     my ($buff1, $buff2, $buff1_size, $buff2_size);
