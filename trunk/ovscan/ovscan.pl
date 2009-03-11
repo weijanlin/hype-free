@@ -59,7 +59,7 @@ our $sites = {
 		url      => 'http://www.viruschief.com/',
 		has_ssl  => 0,
 		has_nd   => 0,
-		func     => \&process_file_vt,
+		func     => \&process_file_vchief,
 		max_size => 10_000_000,		
 	},	
 	fb => {
@@ -67,7 +67,7 @@ our $sites = {
 		url      => 'http://www.filterbit.com/',
 		has_ssl  => 0,
 		has_nd   => 0,
-		func     => \&process_file_vt,
+		func     => \&process_file_fb,
 		max_size => 20_000_000,		
 	},
 	virscan => {
@@ -516,6 +516,7 @@ sub process_file_jotti {
   while ($complete_data =~ /$response_rx/g) {
   	my ($engine, $result) = ($1, $2);
   	$result =~ s/\s+/ /g;
+  	$result =~ s/Found nothing/\-/;
   	$results{$engine} = {
   	  version     => 'unknown',
   	  last_update => 'unknown',
@@ -575,6 +576,110 @@ sub process_file_virus {
   	print_line("Status: $1, Percent complete: $2%");  	  	 
   	visual_wait($wait_timeout);
   }  
+}
+
+sub process_file_vchief {
+  my ($file_name) = @_;  
+  
+  my $response;
+  my $id_request = GET 'http://www.viruschief.com/';
+  $response = $browser->request($id_request);
+  
+  my $file_upload_request = POST 'http://www.viruschief.com/index.html' ,
+    [ 
+      uploadfile    => [ $file_name ],
+      MAX_FILE_SIZE => 10485760,
+      submit_file   => 'Scan',       
+    ],
+    'Content_Type' => 'form-data',
+    'Referer'      => 'http://www.viruschief.com/';
+  
+  add_upload_progress($file_upload_request, $file_name);  
+  
+  $response = $browser->request($file_upload_request);
+  print_line('');
+  die("Session ID not found in the reply") unless $response->content() =~ /session_id\s*=\s*["']([a-z0-9]+?)["']/i;
+  my $session_id = $1;
+  print STDERR "Upload finished, waiting for scanning\n" if ($verbose);
+  
+  my $scan_request = POST 'http://www.viruschief.com/ajax_result_update.html', 
+  	['session_id' => $session_id];    
+  my $wait_timeout = 10; #in seconds;
+  my $response_rx = '<name>(.*?)</name><version_engine>(.*?)</version_engine><version_definition>(.*?)</version_definition><infection>(.*?)</infection>'; 
+  while (1) {
+  	$response = $browser->request($scan_request);
+  	my $response_content = $response->content();
+  	my %results;  	
+  	while ($response_content =~ /$response_rx/g) {
+	  $results{$1} = {
+	    version     => $2,
+	    last_update => $3,
+	    scan_result => ('Nothing found' eq $4) ? '-' : $4, 		
+	  };  		
+  	}
+  	print_line('Scanned with engines: ', scalar(keys %results));
+  	if ($response_content =~ /<last>yes<\/last>/i) {  		  		
+  		$results{md5}  = md5_file($file_name);     
+  		$results{sha1} = 'unknown';      
+  		$results{size} = -s $file_name;
+  		
+  		print STDERR "\n" if ($verbose);  
+  		return \%results;
+  	}
+  	else {
+  		visual_wait($wait_timeout);  		
+  	}  	  	   	
+  }        
+}
+
+sub process_file_fb {
+  my ($file_name) = @_;
+  my $response;
+	
+  my @chars=('a'..'z','A'..'Z','0'..'9','_');
+  my $session_id = '';
+  $session_id .= $chars[rand @chars] for (1..32);  
+  my $file_upload_request = POST 'http://www.filterbit.com/uploader.php' ,
+    [ 
+      FileUpload            => [ $file_name ],
+      APC_UPLOAD_PROGRESS   => $session_id,       
+    ],
+    'Content_Type' => 'form-data';
+  
+  add_upload_progress($file_upload_request, $file_name);  
+  
+  $response = $browser->request($file_upload_request);
+  print_line('');
+  die("Upload request failed: " . $response->status_line . "\n") unless $response->is_success;
+
+  my $scan_request = GET "http://www.filterbit.com/results.cgi?uid=$session_id&type=scanresults";     
+  my $wait_timeout = 10; #in seconds;  
+  while (1) {
+  	$response = $browser->request($scan_request);
+  	my $response_content = $response->content();
+  	my %results;  	
+  	while ($response_content =~ /<td nowrap="">(.*?)<\/td>.*?<td nowrap="">(.*?)<\/td>.*?<td>(.*?)<\/td>/sg) {
+  	  my ($engine, $version, $result) = ($1, $2, $3);
+  	  $result =~ s/[ \n\r]+//g;
+	  $results{$engine} = {
+	    version     => 'unknown',
+	    last_update => $version,
+	    scan_result => $result, 		
+	  };  		
+  	}
+  	print_line('Scanned with engines: ', scalar(keys %results));
+  	if ($response_content =~ /Final Result/i) {  		  		
+  		$results{md5}  = md5_file($file_name);     
+  		$results{sha1} = 'unknown';      
+  		$results{size} = -s $file_name;
+  		
+  		print STDERR "\n" if ($verbose);  
+  		return \%results;
+  	}
+  	else {
+  		visual_wait($wait_timeout);  		
+  	}  	  	   	
+  }
 }
 
 sub md5_file {
