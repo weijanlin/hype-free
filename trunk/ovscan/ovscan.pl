@@ -21,7 +21,7 @@ use English;
 #don't load the file in memory at once to conserve memory
 $HTTP::Request::Common::DYNAMIC_FILE_UPLOAD = 1;
 
-our $version = "0.3";
+our $version = "0.3.$Rev$";
 
 our $verbose;
 our $display_help;
@@ -75,7 +75,7 @@ our $sites = {
 		url      => 'http://www.virscan.org/',
 		has_ssl  => 0,
 		has_nd   => 0,
-		func     => \&process_file_vt,
+		func     => \&process_file_virscan,
 		max_size => 10_000_000,		
 	},	
 };
@@ -680,6 +680,61 @@ sub process_file_fb {
   		visual_wait($wait_timeout);  		
   	}  	  	   	
   }
+}
+
+sub process_file_virscan {
+  my ($file_name) = @_;
+  my $response;
+  
+  my $id_request = GET 'http://virscan.org/';
+  $response = $browser->request($id_request);
+  die("Scan ID not found in the reply") unless $response->content() =~ /scanid \s*=\s*["']([a-z0-9]+)["']/i;
+  my $scan_id = $1;
+  
+  my $file_upload_request = POST "http://virscan.org/cgi-bin/upload.cgi?sid=$scan_id&lang=en",
+    [ 
+      file            => [ $file_name ],
+      upload_button   => 'Upload',       
+    ],
+    'Content_Type' => 'form-data';
+  add_upload_progress($file_upload_request, $file_name);  
+  
+  $response = $browser->request($file_upload_request);
+  print_line('');
+  die("Upload request failed: " . $response->status_line . "\n") unless $response->content() =~ /sid=([a-z0-9]+)/i;
+  my $check_cgi = $1;
+  
+  my $status_request = GET "http://virscan.org/cgi-bin/check.cgi?sid=$check_cgi&lang=en";
+  $response = $browser->request($status_request);
+  die("Final check failed: " . $response->status_line . "\n") unless $response->content() =~ /sid=([a-z0-9]+).*?md5=([a-z0-9]+)/i;
+  my ($scan_cgi, $scan_md5) = ($1, $2);
+  
+  my $complete_data = '';
+  $status_request = GET "http://virscan.org/cgi-bin/scan.cgi?sid=$scan_cgi&md5=$scan_md5&lang=en ";
+  $response = $browser->request($status_request, sub {
+  	my $data = shift;
+  	$complete_data .= $data;
+  	my $scan_count = 0; ++$scan_count while ($complete_data =~ /scan_scanner/g);
+  	print_line("Scanned with $scan_count engine(s)");
+  });
+  
+  my %results;  	
+  while ($complete_data =~ /scan_scanner.*?"(.*)"/g) {
+  	my $result = $1;
+  	$result =~ /(.*?)\s*<.*?>(.*)</;  	
+	$results{$1} = {
+	  version     => 'unknown',
+	  last_update => 'unknown',
+	  scan_result => ('Nothing found' eq $2) ? '-' : $2, 		
+	};  		
+  }
+
+  $results{md5}  = md5_file($file_name);     
+  $results{sha1} = 'unknown';      
+  $results{size} = -s $file_name;
+  		
+  print STDERR "\n" if ($verbose);  
+  return \%results;  
 }
 
 sub md5_file {
