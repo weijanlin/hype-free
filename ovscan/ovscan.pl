@@ -21,7 +21,8 @@ use English;
 #don't load the file in memory at once to conserve memory
 $HTTP::Request::Common::DYNAMIC_FILE_UPLOAD = 1;
 
-our $version = "0.3.$Rev$";
+'$Rev$' =~ /\d+/;
+our $version = "0.3.r$&";
 
 our $verbose;
 our $display_help;
