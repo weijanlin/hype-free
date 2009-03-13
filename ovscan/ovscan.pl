@@ -81,7 +81,7 @@ if (defined $scan_site_error) {
 }
 
 my %processed_cache;
-our $browser = LWP::UserAgent->new(agent => "unoffical vtuploader/v$version contact: x_at_y_or_z\@yahoo.com",
+our $browser = LWP::UserAgent->new(agent => "unoffical ovscan/v$version contact: x_at_y_or_z\@yahoo.com",
   requests_redirectable => []);
 #grab the proxy settings from the enviroment variables
 #if it's the case
