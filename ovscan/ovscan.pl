@@ -3,9 +3,9 @@ use strict;
 use warnings;
 use LWP::UserAgent;
 use Digest::MD5;
+use Digest::SHA1;
 use HTTP::Request::Common;
 use Getopt::Long;
-use English;
 
 #    Copyright 2007-2009 Cd-MaN
 #    This program is free software; you can redistribute it and/or modify
@@ -27,58 +27,16 @@ our $version = "0.3.r$&";
 our $verbose;
 our $display_help;
 our $distribute;
-our ($output_bbcode, $output_csv, $ouput_tab, $output_html, $use_ssl, $scan_site);
+our ($output_bbcode, $output_csv, $ouput_tab, $output_html, $use_ssl, $scan_site, $scan_timeout);
 our $log_file;
 
 our $sites = {
-	vt => {
-		name     => 'VirusTotal',
-		url      => 'http://www.virustotal.com/',
-		has_ssl  => 1,
-		has_nd   => 1,
-		func     => \&process_file_vt,
-		max_size => 10_000_000,
-	},
-	jotti => {
-		name     => 'Jotti\'s malware scan',
-		url      => 'http://virusscan.jotti.org/',
-		has_ssl  => 0,
-		has_nd   => 0,
-		func     => \&process_file_jotti,
-		max_size => 10_000_000,		
-	},
-	virus => {
-		name     => 'Virus.Org',
-		url      => 'http://scanner.virus.org/',
-		has_ssl  => 0,
-		has_nd   => 1,
-		func     => \&process_file_virus,
-		max_size => 5_000_000,		
-	},
-	vchief => {
-		name     => 'VirusChief',
-		url      => 'http://www.viruschief.com/',
-		has_ssl  => 0,
-		has_nd   => 0,
-		func     => \&process_file_vchief,
-		max_size => 10_000_000,		
-	},	
-	fb => {
-		name     => 'Filterbit',
-		url      => 'http://www.filterbit.com/',
-		has_ssl  => 0,
-		has_nd   => 0,
-		func     => \&process_file_fb,
-		max_size => 20_000_000,		
-	},
-	virscan => {
-		name     => 'VirSCAN',
-		url      => 'http://www.virscan.org/',
-		has_ssl  => 0,
-		has_nd   => 0,
-		func     => \&process_file_virscan,
-		max_size => 10_000_000,		
-	},	
+	vt      => { name => 'VirusTotal', url => 'http://www.virustotal.com/', has_ssl => 1, has_nd => 1, func => \&process_file_vt, max_size => 10_000_000, },
+	jotti   => { name => 'Jotti\'s malware scan', url => 'http://virusscan.jotti.org/', has_ssl  => 0, has_nd => 0, func => \&process_file_jotti, max_size => 10_000_000, },
+	virus   => { name => 'Virus.Org', url => 'http://scanner.virus.org/', has_ssl => 0, has_nd => 1, func => \&process_file_virus, max_size => 5_000_000, },
+	vchief  => { name => 'VirusChief', url => 'http://www.viruschief.com/', has_ssl => 0, has_nd => 0, func => \&process_file_vchief, max_size => 10_000_000, },	
+	fb      => { name => 'Filterbit', url => 'http://www.filterbit.com/', has_ssl => 0, has_nd => 0, func => \&process_file_fb, max_size => 20_000_000, },
+	virscan => { name => 'VirSCAN', url => 'http://www.virscan.org/', has_ssl => 0, has_nd => 0, func => \&process_file_virscan, max_size => 10_000_000, },	
 };
 
 $scan_site = 'vt';
@@ -92,7 +50,8 @@ if (!GetOptions(
   "html|m"       => \$output_html,
   "ssl|s"        => \$use_ssl,
   "log|l=s"      => \$log_file,
-  "site|i=s"      => \$scan_site,
+  "site|i=s"     => \$scan_site,
+  "timeout|e=i"  => \$scan_timeout,
   ) || $display_help || 0 == scalar(@ARGV)) {
   help();
   exit;
@@ -145,20 +104,21 @@ foreach my $glob_str (@ARGV) {
     #don't die if an error occured, since this is a lengthy process
     #and we should process at least the files which we can
     eval {
+      local $SIG{ALRM} = sub { die "Scanning timeouted!\n" };
       print STDERR "Processing file $file_name\n" if ($verbose);
       
       #calculate the MD5 of the file and try to find out
       #if an identical file has already been process
       #and if so, display the results from there
 
-      my ($file_md5, $file_size) = (md5_file($file_name), -s $file_name);
-      print STDERR "\tMD5: $file_md5\n\tFile size: $file_size bytes\n" if ($verbose);
+      my ($file_md5, $file_sha1, $file_size) = (hash_file($file_name), -s $file_name);
+      print STDERR "\tMD5: $file_md5\n\tSHA1: $file_sha1\n\tFile size: $file_size bytes\n" if ($verbose);
       
       my $found_in_cache = 0;
       foreach my $processed_file_name (keys %processed_cache) {
-        if ($file_md5 eq $processed_cache{$processed_file_name}->{'MD5'} &&
-          $file_size == $processed_cache{$processed_file_name}->{'size'} &&
-          files_identical($processed_file_name, $file_name)) {
+        if ($file_md5 eq $processed_cache{$processed_file_name}->{'MD5'} 
+        	&& $file_size == $processed_cache{$processed_file_name}->{'size'} 
+        	&& files_identical($processed_file_name, $file_name)) {
           print STDERR "\tFile identical to \"$processed_file_name\". Will display cached results\n" if ($verbose);
           $processed_cache{$file_name} = $processed_cache{$processed_file_name}; 
           $found_in_cache = 1;
@@ -167,7 +127,12 @@ foreach my $glob_str (@ARGV) {
       }
       if (!$found_in_cache) {
       	die("Tried to process element \"$file_name\" which is not a file!\n") if (! -f $file_name);
-        my $result = $sites->{$scan_site}->{func}->($file_name, $use_ssl);				
+      	alarm $scan_timeout if $scan_timeout;
+        my $result = $sites->{$scan_site}->{func}->($file_name, $use_ssl);
+        alarm 0;
+        $result->{md5}  = $file_md5;
+        $result->{sha1} = $file_sha1;
+        $result->{size} = $file_size;
         $processed_cache{$file_name} = {
           'MD5' => $file_md5,
           'size' => $file_size,
@@ -185,7 +150,7 @@ foreach my $glob_str (@ARGV) {
         print STDERR "Infection count $infected out of $total_engines\n";
       }			
     };
-    print STDERR "The following error occured while processing \"$file_name\":\n$@\n" if ($@);
+    print STDERR "\nThe following error occured while processing \"$file_name\":\n$@\n" if ($@);
   }
 }
 
@@ -361,6 +326,8 @@ Options:
   -t --tab         Output the result as tab delimited file
   -m --html        Output the result as HTML	
   -s --ssl         Use SSL
+  -e --timeout=[t] Timeout the scanning process after a number of seconds.
+                   The timeout is per file
   -l --log=[file]  Save the output (the result of the scans) to the specified
                    file
   -i --site=[site] Use a site other than the default (VirusTotal) for scanning
@@ -474,11 +441,7 @@ sub process_file_vt {
           last_update => $result->[2],
           scan_result => $result->[3]        
         };
-      }
-      $results{md5}  = $1 if ($response_parsed->[3]->[1]->[0] =~ /([0-9a-fA-F]{32})/);      
-      $results{sha1} = $1 if ($response_parsed->[3]->[2]->[0] =~ /([0-9a-fA-F]{40})/);      
-      $results{size} = $1 if ($response_parsed->[3]->[0]->[0] =~ /(\d+) bytes/);
-      
+      }      
       last;
     } else {
       die("Unexpected status returned by server: " . $response_parsed->[0] . "\n");
@@ -525,10 +488,6 @@ sub process_file_jotti {
   	};
   } 
   
-  $results{md5}  = md5_file($file_name);     
-  $results{sha1} = 'unknown';      
-  $results{size} = -s $file_name;
-
   print STDERR "\n" if ($verbose);  
   return \%results;		
 }
@@ -619,11 +578,7 @@ sub process_file_vchief {
 	  };  		
   	}
   	print_line('Scanned with engines: ', scalar(keys %results));
-  	if ($response_content =~ /<last>yes<\/last>/i) {  		  		
-  		$results{md5}  = md5_file($file_name);     
-  		$results{sha1} = 'unknown';      
-  		$results{size} = -s $file_name;
-  		
+  	if ($response_content =~ /<last>yes<\/last>/i) {
   		print STDERR "\n" if ($verbose);  
   		return \%results;
   	}
@@ -669,11 +624,7 @@ sub process_file_fb {
 	  };  		
   	}
   	print_line('Scanned with engines: ', scalar(keys %results));
-  	if ($response_content =~ /Final Result/i) {  		  		
-  		$results{md5}  = md5_file($file_name);     
-  		$results{sha1} = 'unknown';      
-  		$results{size} = -s $file_name;
-  		
+  	if ($response_content =~ /Final Result/i) {
   		print STDERR "\n" if ($verbose);  
   		return \%results;
   	}
@@ -730,24 +681,24 @@ sub process_file_virscan {
 	};  		
   }
 
-  $results{md5}  = md5_file($file_name);     
-  $results{sha1} = 'unknown';      
-  $results{size} = -s $file_name;
-  		
   print STDERR "\n" if ($verbose);  
   return \%results;  
 }
 
-sub md5_file {
+sub hash_file {
   my $file_name = shift;
-  open my $f_md5, '<', $file_name or die("Failed to open \"$file_name\" to calculate its MD5: $!\n");
-  binmode $f_md5;
+  open my $f_hash, '<', $file_name or die("Failed to open \"$file_name\" to calculate its MD5: $!\n");
+  binmode $f_hash;
   
-  my $ctx = Digest::MD5->new;
-  $ctx->addfile($f_md5);
+  my ($ctx, $cty) = (Digest::MD5->new, Digest::SHA1->new);
+  my $buffer;
+  while (read $f_hash, $buffer, 4096) {
+  	$ctx->add($buffer);
+  	$cty->add($buffer);
+  }
   
-  close $f_md5;
-  return $ctx->hexdigest;	
+  close $f_hash;
+  return ($ctx->hexdigest, $cty->hexdigest);  	
 }
 
 sub files_identical {
@@ -761,9 +712,9 @@ sub files_identical {
   while (1) {
     my ($buff1, $buff2, $buff1_size, $buff2_size);
     $buff1_size = read $f1, $buff1, 4096;
-    die("Failed to read from \"$file_name1\": $!\n") if (!defined $buff1_size);
+    die("Failed to read from \"$file_name1\": $!\n") unless defined $buff1_size;
     $buff2_size = read $f2, $buff2, 4096;
-    die("Failed to read from \"$file_name2\": $!\n") if (!defined $buff2_size);
+    die("Failed to read from \"$file_name2\": $!\n") unless defined $buff2_size;
     
     die("Something went horribly wrong! Buffer sizes should be equal!") if ($buff1_size != $buff2_size);
     last if ($buff1_size == 0);
@@ -792,9 +743,9 @@ sub quickNDirtyJSONParser {
     
     if ($jsonStr =~ /^\[/) {
       push @parserStack, [];
-      $jsonStr = $POSTMATCH;
+      $jsonStr = $';
     } elsif ($jsonStr =~ /^\"((?:[^\"]|\\\")*)\"/) {
-      my $str = $1; $jsonStr = $POSTMATCH;
+      my $str = $1; $jsonStr = $';
       $str =~ s/\\\"/\"/g;
       $str =~ s/\\\\/\\/g;
       $str =~ s/\\\//\//g;
@@ -808,17 +759,17 @@ sub quickNDirtyJSONParser {
       push @{$topOfStack}, $str;
       push @parserStack, $topOfStack;
     } elsif ($jsonStr =~ /^\]/) {			
-      $jsonStr = $POSTMATCH;
+      $jsonStr = $';
       my ($topOfStack, $secondTopOfStack) = (pop @parserStack, pop @parserStack);
       push @{$secondTopOfStack}, $topOfStack;
       push @parserStack, $secondTopOfStack;
     } elsif ($jsonStr =~ /^,/) {
-      $jsonStr = $POSTMATCH;
+      $jsonStr = $';
     } elsif ($jsonStr =~ /^\-?\d+(?:\.\d+)?(?:[eE][\+\-]?\d+)?/) {
       my $topOfStack = pop @parserStack;
       push @{$topOfStack}, (0.0 + $&);
       push @parserStack, $topOfStack;		
-      $jsonStr = $POSTMATCH;
+      $jsonStr = $';
     } elsif ('' eq $jsonStr) {
       last;
     } else {
