@@ -79,6 +79,7 @@ if (defined $scan_site_error) {
 	print STDERR $scan_site_error, "\n";
 	exit 1; 
 }
+$scan_site = $sites->{$scan_site};
 
 my %processed_cache;
 our $browser = LWP::UserAgent->new(agent => "unoffical ovscan/v$version contact: x_at_y_or_z\@yahoo.com",
@@ -91,8 +92,8 @@ $browser->cookie_jar({});
 foreach my $glob_str (@ARGV) {
   foreach my $file_name (glob($glob_str)) {
     next unless (-f $file_name);
-    if (-s $file_name > $sites->{$scan_site}->{max_size}) {
-      print STDERR "The maximum file size allowed is ", $sites->{$scan_site}->{max_size} / 1_000_000,
+    if (-s $file_name > $scan_site->{max_size}) {
+      print STDERR "The maximum file size allowed is ", $scan_site->{max_size} / 1_000_000,
       	". The \"$file_name\" exceeds this limit!\n";
       next;
     }
@@ -128,7 +129,7 @@ foreach my $glob_str (@ARGV) {
       if (!$found_in_cache) {
       	die("Tried to process element \"$file_name\" which is not a file!\n") if (! -f $file_name);
       	alarm $scan_timeout if $scan_timeout;
-        my $result = $sites->{$scan_site}->{func}->($file_name, $use_ssl);
+        my $result = $scan_site->{func}->($file_name, $use_ssl);
         alarm 0;
         $result->{md5}  = $file_md5;
         $result->{sha1} = $file_sha1;
@@ -199,8 +200,8 @@ foreach my $processed_file (sort keys %processed_cache) {
   my $percent_detection = sprintf("%.2f%%", (0 == $total_count) ? 0.0 : $detection_count * 100.0 / $total_count);
 
   if ($output_bbcode) {
-    print $fout "[pre]\n";
-    print $fout "---[ [url]www.virustotal.com[/url] ]---------------------------\n";
+    print $fout "[pre]\n"; 
+    print $fout "---[ [url]", $scan_site->{url}, "[/url] ]---------------------------\n";
     print $fout "\nFile $processed_file\n";
     print $fout "Detection: $percent_detection ($detection_count/$total_count)\n\n";
     
@@ -241,10 +242,11 @@ foreach my $processed_file (sort keys %processed_cache) {
     my $separator = ($output_csv) ? ', ' : "\t";  	
     @columns = map { quote_elements($_) } @columns if ($output_csv);	
     print $fout join($separator, @columns), "\n";  	
-  } elsif ($output_html  ) {
+  } elsif ($output_html) {
+  	my ($url, $name) = ($scan_site->{url}, $scan_site->{name});
     print $fout <<END;
 <table>
-<caption><a href="http://www.virustotal.com/">VirusTotal</a> scan results</caption>
+<caption><a href="$url">$name</a> scan results</caption>
 <thead>
 <tr><th>File name</th><td colspan="3">$processed_file</td></tr>
 <tr><th>Detection</th><td colspan="3">$percent_detection ($detection_count/$total_count)</td></tr>
@@ -410,7 +412,7 @@ sub process_file_vt {
   die("Request failed: " . $response->status_line . "\n") unless $response->header('Location');  
   
   die ("Response header does not contain expected location header!\n") 
-    unless ($response->header('Location') =~ /\/([a-f0-9]+)$/i);
+    unless ($response->header('Location') =~ /[\/\?]([a-f0-9]+)$/i);
   my $file_id = $1;
   
   print STDERR "Upload finished, waiting for scanning\n" if ($verbose);
