@@ -386,6 +386,8 @@ sub add_upload_progress {
 sub visual_wait {
   my $wait_timeout = shift;
   my $last_line = $last_printed_line;
+  $last_line = substr($last_line, 0, 27) . '...' 
+  	if (length $last_line > 30);
   for (1..$wait_timeout) {  	
     print_line("Waiting for ", ($wait_timeout - $_), " more seconds [", $last_line, "]");
     sleep 1;
@@ -414,6 +416,14 @@ sub process_file_vt {
   die ("Response header does not contain expected location header!\n") 
     unless ($response->header('Location') =~ /[\/\?]([a-f0-9]+)$/i);
   my $file_id = $1;
+  
+  if ($response->header('Location') =~ /reanalisis/) {
+  	print STDERR "File seen before, requesting reanalisys\n" if ($verbose);
+  	my $reanalisys_request = GET "$protocol://www.virustotal.com/vt/en/reanaliza?$file_id",
+  		'Referrer' => "$protocol://www.virustotal.com/vt/en/recepcionf";
+  	$response = $browser->request($reanalisys_request);
+  	die("Reanalisys request failed: " . $response->status_line . "\n") unless $response->header('Location');
+  }
   
   print STDERR "Upload finished, waiting for scanning\n" if ($verbose);
   
