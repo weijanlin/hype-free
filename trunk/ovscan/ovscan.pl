@@ -22,13 +22,14 @@ use Getopt::Long;
 $HTTP::Request::Common::DYNAMIC_FILE_UPLOAD = 1;
 
 '$Rev$' =~ /\d+/;
-our $version = "0.3.r$&";
+our $version = "0.4.r$&";
 
 our $verbose;
 our $display_help;
 our $distribute;
 our ($output_bbcode, $output_csv, $ouput_tab, $output_html, $use_ssl, $scan_site, $scan_timeout);
 our $log_file;
+our $last_printed_line = '';
 
 our $sites = {
 	vt      => { name => 'VirusTotal', url => 'http://www.virustotal.com/', has_ssl => 1, has_nd => 1, func => \&process_file_vt, max_size => 10_000_000, },
@@ -348,12 +349,9 @@ File masks:
 END
 }
 
-our $last_printed_line;
-
 #used to overwrite the lines (for progress bars, etc)
 sub print_line {
   return unless ($verbose);
-  $last_printed_line = '' unless defined $last_printed_line;
   
   print STDERR "\r", " " x (length $last_printed_line), "\r";
   $last_printed_line = join("", @_);
@@ -414,7 +412,7 @@ sub process_file_vt {
   die("Request failed: " . $response->status_line . "\n") unless $response->header('Location');  
   
   die ("Response header does not contain expected location header!\n") 
-    unless ($response->header('Location') =~ /[\/\?]([a-f0-9]+)$/i);
+    unless ($response->header('Location') =~ /[\/\?]([a-f0-9\-]+)$/i);
   my $file_id = $1;
   
   if ($response->header('Location') =~ /reanalisis/) {
