@@ -172,7 +172,7 @@ foreach my $file_name (keys %processed_cache) {
     $max_result         = length($file_results{$engine_name}->{'scan_result'}) if (length($file_results{$engine_name}->{'scan_result'}) > $max_result);
   }
 }
-my @engine_name_list = sort keys %av_engine_names;
+my @engine_name_list = sort { lc($a) cmp lc($b) } keys %av_engine_names;
 
 if ($output_csv || $ouput_tab) {
   my $separator = ($output_csv) ? ', ' : "\t";
