@@ -6,6 +6,7 @@ use Digest::MD5;
 use Digest::SHA1;
 use HTTP::Request::Common;
 use Getopt::Long;
+use JSON qw/from_json/;
 
 #    Copyright 2007-2009 Cd-MaN
 #    This program is free software; you can redistribute it and/or modify
@@ -433,7 +434,7 @@ sub process_file_vt {
   my $wait_timeout = 30; #in seconds;
   while (1) {
     $response = $browser->request($scan_request);
-    my $response_parsed = quickNDirtyJSONParser($response->content());
+    my $response_parsed = from_json($response->content());
     if ('ENCOLADO' eq $response_parsed->[0]) {
       print_line(sprintf("Enqued in position %d. Estimated start time between %d and %d %s",
         $response_parsed->[3]->[0], $response_parsed->[3]->[1], $response_parsed->[3]->[2], $response_parsed->[3]->[3]));
@@ -525,34 +526,59 @@ sub process_file_nvt {
 sub process_file_jotti {
   my ($file_name) = @_;
 
-  my $file_upload_request = POST "http://virusscan.jotti.org/",
+  my $file_upload_request = POST "http://virusscan.jotti.org/processupload.php",
     [ 'scanfile' => [ $file_name ] ],
     'Content_Type' => 'form-data';
-
+  
   add_upload_progress($file_upload_request, $file_name);
-
-  my $complete_data = '';
-  my $response_rx = "scanner([a-z0-9]+).*?='(.*?)'";
-  my $response = $browser->request($file_upload_request, sub {
-  	my $data = shift;
-  	$complete_data .= $data;
-  	my $scan_count = 0; ++$scan_count while ($complete_data =~ /$response_rx/g);
-  	print_line("Scanned with $scan_count engine(s)");
-  });
+  
+  my $response = $browser->request($file_upload_request);
   print_line('');
 
   die("Request failed: " . $response->status_line . "\n") unless $response->is_success;
-
+  die("Failed to find link in response\n") 
+  	unless $response->content() =~ /top.location.href\s*=\s*"(.*\/([a-f0-9]+))";/i;
+  my ($scan_url, $start_scan) = ($1, $2);
+  die("SessionID not found in cookie!\n")
+  	unless $response->header('Set-Cookie') =~ /sessionid=([a-f0-9]+)/; 
+  my ($sessionid) = $1;
+  
+  my $wait_timeout = 30;
+  
+  my $start_scan_req = GET "http://virusscan.jotti.org/nestor/startscan.php?scanid=" 
+  	. $start_scan . "&sessionid=" . $sessionid . "&output=json";
+  while (1) {
+  	$response = $browser->request($start_scan_req);
+  	my $response_parsed = from_json($response->content());
+  	if ($response_parsed->{code} eq 'SCAN_SPAWN_OK') {
+  		print_line('Starting scan');
+  		last;
+  	}
+  	
+  	my $queue_pos = $response_parsed->{placeinqueue} ? $response_parsed->{placeinqueue} : '?';
+  	print_line('Waiting. Place in the queue: ' . $queue_pos);
+  	visual_wait($wait_timeout);
+  }
+  
   my %results;
-  while ($complete_data =~ /$response_rx/g) {
-  	my ($engine, $result) = ($1, $2);
-  	$result =~ s/\s+/ /g;
-  	$result =~ s/Found nothing/\-/;
-  	$results{$engine} = {
-  	  version     => 'unknown',
-  	  last_update => 'unknown',
-  	  scan_result => $result,
-  	};
+  print_line('Scanning');
+  for (1..6) {
+  	my $get_progress_req = GET "http://virusscan.jotti.org/nestor/getscanprogress.php?sessionid="
+  		. $sessionid . "&lang=en&scanid=" . $start_scan . "&timestamp=" . time() . "&output=json";
+  	$response = $browser->request($get_progress_req);
+  	my $response_parsed = from_json($response->content());
+  	%results = ();
+  	for (@{$response_parsed->{scanner}}) {
+  		next unless $_->{scanok};
+  		$_->{virusname} = '-'
+  			if ('' eq $_->{virusname});
+  		$results{$_->{scannerid}} = {
+          version     => 'unknown',
+          last_update => $_->{lastupdate},
+          scan_result => $_->{virusname},
+        };
+  	}
+  	visual_wait(10);
   }
 
   print STDERR "\n" if ($verbose);
@@ -561,6 +587,7 @@ sub process_file_jotti {
 
 sub process_file_virus {
   my ($file_name) = @_;
+  die("Virus.Org seems to have some difficulties at the moment (they block at 72% done). Disabled temporarily.\n");
 
   my $response;
   my $id_request = GET 'http://scanner.virus.org/advanced';
@@ -725,7 +752,16 @@ sub process_file_virscan {
 
   my $status_request = GET "http://virscan.org/cgi-bin/check.cgi?sid=$check_cgi&lang=en";
   $response = $browser->request($status_request);
-  die("Final check failed: " . $response->status_line . "\n") unless $response->content() =~ /sid=([a-z0-9]+).*?md5=([a-z0-9]+)/i;
+  my $response_content = $response->content();
+  if ($response_content =~ /parent.scanid.*?"([a-f0-9]+)".*?parent.md5.*?"([a-f0-9]+)"/si) {
+  	print STDERR "File seen before, requesting reanalisys\n" if ($verbose);
+  }
+  elsif ($response_content =~ /sid=([a-z0-9]+).*?md5=([a-z0-9]+)/i) {
+  	# normal scan
+  }
+  else {
+  	die("Final check failed: " . $response->status_line . "\n");
+  }
   my ($scan_cgi, $scan_md5) = ($1, $2);
 
   my $complete_data = '';
@@ -733,8 +769,9 @@ sub process_file_virscan {
   $response = $browser->request($status_request, sub {
   	my $data = shift;
   	$complete_data .= $data;
-  	my $scan_count = 0; ++$scan_count while ($complete_data =~ /scan_scanner/g);
-  	print_line("Scanned with $scan_count engine(s)");
+  	my %engines;
+  	$engines{$1} = 1 while ($complete_data =~ /scan_scanner.*?"(.*)"/g);
+  	print_line("Scanned with " . scalar(keys %engines) . " engine(s)");
   });
 
   my %results;
@@ -794,58 +831,6 @@ sub files_identical {
 
   close $f1; close $f2;
   return 1;
-}
-
-#implements parsing for a subset of JSON
-#used to make the script as self-contained as possible
-sub quickNDirtyJSONParser {
-  my $jsonStr = shift;
-
-  my @parserStack;
-  push @parserStack, [];
-
-  while ('' ne $jsonStr) {
-    #right trim
-    $jsonStr =~ s/^\s+//;
-
-    if ($jsonStr =~ /^\[/) {
-      push @parserStack, [];
-      $jsonStr = $';
-    } elsif ($jsonStr =~ /^\"((?:[^\"]|\\\")*)\"/) {
-      my $str = $1; $jsonStr = $';
-      $str =~ s/\\\"/\"/g;
-      $str =~ s/\\\\/\\/g;
-      $str =~ s/\\\//\//g;
-      $str =~ s/\\b/\b/g;
-      $str =~ s/\\f/\f/g;
-      $str =~ s/\\n/\n/g;
-      $str =~ s/\\r/\r/g;
-      $str =~ s/\\t/\t/g;
-      #todo: handle unicode characters encoded as \uXXXX
-      my $topOfStack = pop @parserStack;
-      push @{$topOfStack}, $str;
-      push @parserStack, $topOfStack;
-    } elsif ($jsonStr =~ /^\]/) {
-      $jsonStr = $';
-      my ($topOfStack, $secondTopOfStack) = (pop @parserStack, pop @parserStack);
-      push @{$secondTopOfStack}, $topOfStack;
-      push @parserStack, $secondTopOfStack;
-    } elsif ($jsonStr =~ /^,/) {
-      $jsonStr = $';
-    } elsif ($jsonStr =~ /^\-?\d+(?:\.\d+)?(?:[eE][\+\-]?\d+)?/) {
-      my $topOfStack = pop @parserStack;
-      push @{$topOfStack}, (0.0 + $&);
-      push @parserStack, $topOfStack;
-      $jsonStr = $';
-    } elsif ('' eq $jsonStr) {
-      last;
-    } else {
-      die ("Unexpected token at >>>$jsonStr<<<\n");
-    }
-  }
-
-  die("Something went horribly wrong! We should have exactly 1 element on the parse stack!\n") if (1 != scalar(@parserStack));
-  return $parserStack[0]->[0];
 }
 
 #used to quote elements for csv's
