@@ -731,6 +731,7 @@ sub process_file_fb {
 sub process_file_virscan {
   my ($file_name) = @_;
   my $response;
+  die("Virscan.Org seems to have some difficulties at the moment (they are \n");
 
   my $id_request = GET 'http://virscan.org/';
   $response = $browser->request($id_request);
