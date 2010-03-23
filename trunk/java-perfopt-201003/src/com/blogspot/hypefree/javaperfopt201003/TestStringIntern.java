@@ -1,6 +1,7 @@
+package com.blogspot.hypefree.javaperfopt201003;
+
 import java.lang.ref.WeakReference;
 import java.util.*;
-
 
 public class TestStringIntern {
 	private static final Map<String, WeakReference<String>> uniqStrings

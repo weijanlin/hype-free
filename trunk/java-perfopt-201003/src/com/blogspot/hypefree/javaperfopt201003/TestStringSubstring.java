@@ -1,5 +1,6 @@
-import java.util.*;
+package com.blogspot.hypefree.javaperfopt201003;
 
+import java.util.*;
 
 public class TestStringSubstring {
 	public static void main(String[] args) throws Exception {
