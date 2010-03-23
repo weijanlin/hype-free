@@ -1,9 +1,10 @@
+package com.blogspot.hypefree.javaperfopt201003;
+
 import java.io.*;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.GZIPInputStream;
-
 
 public class TestLogParsingOO {
 	private final static String usernamePattern = "[\\p{Alnum}\\p{Punct}]+",
@@ -51,22 +52,24 @@ public class TestLogParsingOO {
 		String line;
 		Arrays.fill(counts, 0);
 		
-		long started = System.currentTimeMillis();
 		while ( null != (line = br.readLine()) ) {
 			for (LogLine pat : patterns) {
 				if (pat.process(line)) { break; }
 			}
 		}
-		System.out.println("Done in " + (System.currentTimeMillis() - started) + " ms");
 		
 		br.close();
 		gzin.close();
 		
-		System.out.println(Arrays.toString(counts));		
+//		System.out.println(Arrays.toString(counts));		
 	}
 	
 	public static void main(String[] args) throws Exception {
-		for (int i = 0; i < 100; ++i) { doTest(); } 
+		for (int i = 0; i < 10; ++i) {
+			long started = System.currentTimeMillis();
+			for (int j = 0; j < 10; ++j) { doTest(); }
+			System.err.println("Done in " + (System.currentTimeMillis() - started) + " ms");
+		} 
 	}
 
 }
