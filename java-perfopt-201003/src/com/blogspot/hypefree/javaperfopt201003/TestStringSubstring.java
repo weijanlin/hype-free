@@ -16,5 +16,6 @@ public class TestStringSubstring {
 		}
 		
 		System.in.read();
+		System.out.println(str.size());
 	}
 }

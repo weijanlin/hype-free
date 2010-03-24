@@ -29,11 +29,11 @@ public class TestDateTimeFormatter {
 					long started = System.currentTimeMillis();
 					for (int i = 0; i < ITERATIONS; ++i) {
 //						df = new SimpleDateFormat(DATE_FORMAT);
-						df = staticDf;
-//						df = dfSource.get();
-						synchronized (staticDf) {
+//						df = staticDf;
+						df = dfSource.get();
+//						synchronized (staticDf) {
 							df.parse(df.format(now));
-						}						
+//						}						
 					}
 					System.out.println("Time: " + (System.currentTimeMillis() - started) + " ms.");
 				}

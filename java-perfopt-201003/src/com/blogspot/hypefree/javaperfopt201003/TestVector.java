@@ -5,7 +5,7 @@ import java.util.*;
 public class TestVector {
 	final static private String ID_CHARS = "1234567890qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM";
 	final static Random rnd = new Random();
-	final static int ITERATIONS = 50000;
+	final static int ITERATIONS = 10000;
 	
 	private static String getId() {
 		char[] id = new char[16];
@@ -23,7 +23,7 @@ public class TestVector {
 			if (!ids.contains(id)) {
 				ids.add(id);
 			}
-		}		
+		}
 	}
 	
 	@SuppressWarnings("unused")
@@ -37,7 +37,7 @@ public class TestVector {
 	
 	public static void main(String[] args) {
 		long started = System.currentTimeMillis();
-//		version2();
+		version1();
 		System.out.println("Finished in: " + (System.currentTimeMillis() - started) + " ms");
 	}
 }

@@ -8,17 +8,17 @@ public class TestStringIntern {
 		= new WeakHashMap<String, WeakReference<String>>();
 	
 	static synchronized String getUniqueString(String str) {
-//		return str;
+		return str;
 		
 //		return str.intern();
 		
-		WeakReference<String> ref = uniqStrings.get(str);
-		if (null != ref) {
-			String res = ref.get();
-			if (null != res) { return res; }
-		}
-		uniqStrings.put(str, new WeakReference<String>(str));
-		return str;
+//		WeakReference<String> ref = uniqStrings.get(str);
+//		if (null != ref) {
+//			String res = ref.get();
+//			if (null != res) { return res; }
+//		}
+//		uniqStrings.put(str, new WeakReference<String>(str));
+//		return str;
 	}
 	
 	public static void main(String[] args) throws Exception {
@@ -37,5 +37,6 @@ public class TestStringIntern {
 		System.out.println("Done in " + (System.currentTimeMillis() - started) + " ms");
 		System.gc();
 		System.in.read();
+		System.out.println(memoryDb.size());
 	}
 }
