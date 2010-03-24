@@ -32,19 +32,32 @@ public class TestContention {
 						i = queue.remove(0);
 					}
 					
+					if (null == i) { break; }
 					PI(PI_PRECISION + i % 16);
 				}
 			}
 		};
 		
-		for (int i = 0; i < THREAD_CNT; ++i) { new Thread(processor).start(); }
+		Thread[] threads = new Thread[THREAD_CNT];
+		for (int i = 0; i < THREAD_CNT; ++i) { 
+			threads[i] = new Thread(processor); 
+			threads[i].start(); 
+		}
 				
 		long started = System.currentTimeMillis();
 		for (int i = 0; i < ITERATIONS; ++i) {
 			int size;
-			synchronized (queue) { queue.add(++i); size = queue.size(); queue.notifyAll(); }
+			synchronized (queue) { queue.add(++i); size = queue.size(); queue.notify(); }
 			if (size > 1000) { Thread.sleep(10); }
 		}
+		
+		synchronized (queue) {
+			for (int i = 0; i < THREAD_CNT; ++i) { queue.add(null); }
+			queue.notifyAll();
+		}
+		
+		for (int i = 0; i < THREAD_CNT; ++i) { threads[i].join(); }
+		
 		System.out.println("Parallel version finished in: " + (System.currentTimeMillis() - started) + " ms");
 		
 		started = System.currentTimeMillis();
