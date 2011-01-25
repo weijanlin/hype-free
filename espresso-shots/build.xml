@@ -30,6 +30,7 @@
 		<ivy:retrieve />
 		<ivy:cachepath pathid="lib.path.id" conf="default" />
 		
+		<mkdir dir="${build.dir}" />
 		<javac srcdir="${src.dir}" destdir="${build.dir}" classpathref="lib.path.id" />
 		<junit fork="no" haltonerror="false" haltonfailure="false" includeantruntime="false">
 			<classpath> 
