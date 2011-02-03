@@ -2,7 +2,8 @@
 <ivy-module version="2.0">
     <info organisation="org.transylvania.jug" module="espresso"/>
     <dependencies>
-        <dependency org="commons-lang" name="commons-lang" rev="2.6" conf="*->*,!sources,!javadoc"/>
-        <dependency org="junit" name="junit" rev="4.8.2" conf="*->*,!sources,!javadoc"/>
+        <dependency org="commons-lang" name="commons-lang" rev="2.6" conf="*->*,!sources,!javadoc" />
+        <dependency org="junit" name="junit" rev="4.8.2" conf="*->*,!sources,!javadoc" />
+        <dependency org="log4j" name="log4j" rev="1.2.16" conf="*->*,!sources,!javadoc" />
     </dependencies>
 </ivy-module>
