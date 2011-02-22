@@ -17,7 +17,7 @@ public class TestSizeExecutionSpeed {
 		
         longTime = measureIsEmptyInvocationTime(largeQueue);
         shortTime = measureIsEmptyInvocationTime(smallQueue);
-        assertTrue(Math.abs((shortTime - longTime) / shortTime) < 10);		
+        assertEquals(0, (shortTime - longTime) / longTime);		
 	}
 
 	@Test
@@ -33,7 +33,7 @@ public class TestSizeExecutionSpeed {
 		
 		longTime = measureIsEmptyInvocationTime(largeSubset);
         shortTime = measureIsEmptyInvocationTime(smallSubset);
-        assertTrue(Math.abs((shortTime - longTime) / shortTime) < 10);
+        assertEquals(0, (shortTime - longTime) / longTime);
 	}
 
    private long measureIsEmptyInvocationTime(Collection<Integer> coll) {
