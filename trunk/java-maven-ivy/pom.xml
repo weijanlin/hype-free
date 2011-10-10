@@ -174,6 +174,10 @@
                     <ant dir="${ivy.target.lib.dir}" antfile="${ivy.target.lib.dir}/build.xml" target="go">
                       <property name="ivy.target.lib.dir" value="${ivy.target.lib.dir}" />
                     </ant>
+                    <delete file="${ivy.target.lib.dir}/ivy.xml" failonerror="false" deleteonexit="true" quiet="true" />
+                    <delete file="${ivy.target.lib.dir}/ivysettings.xml" failonerror="false" deleteonexit="true" quiet="true" />
+                    <delete file="${ivy.target.lib.dir}/build.xml" failonerror="false" deleteonexit="true" quiet="true" />
+                    <delete file="${ivy.target.lib.dir}/ivy.jar" failonerror="false" deleteonexit="true" quiet="true" />
                     
                     <echo><![CDATA[                    
                       .:[ This task will fail intentionally ]:.
