@@ -52,17 +52,17 @@
       <dependencies>
         <dependency>
           <groupId>com.example.ivyimport</groupId>
-          <artifactId>GroboUtils</artifactId>
+          <artifactId>example-GroboUtils-GroboUtils</artifactId>
           <version>5-core</version>
           <scope>system</scope>
-          <systemPath>${ivy.target.lib.dir}/GroboUtils--5-core.jar</systemPath>
+          <systemPath>${ivy.target.lib.dir}/example-GroboUtils-GroboUtils--5-core.jar</systemPath>
         </dependency>
         <dependency>
           <groupId>com.example.ivyimport</groupId>
-          <artifactId>jaudiotagger</artifactId>
+          <artifactId>example-jaudiotagger-jaudiotagger</artifactId>
           <version>2.0.4-SNAPSHOT</version>
           <scope>system</scope>
-          <systemPath>${ivy.target.lib.dir}/jaudiotagger--2.0.4-SNAPSHOT.jar</systemPath>
+          <systemPath>${ivy.target.lib.dir}/example-jaudiotagger-jaudiotagger--2.0.4-SNAPSHOT.jar</systemPath>
         </dependency>
       </dependencies>
     </profile>
@@ -135,7 +135,7 @@
                         <target name="go">
                           <taskdef resource="org/apache/ivy/ant/antlib.xml" uri="antlib:org.apache.ivy.ant" classpath="ivy.jar" />
                           <ivy:settings file="ivysettings.xml"/>
-                          <ivy:retrieve pattern="./[artifact]--[revision].[ext]" />
+                          <ivy:retrieve pattern="./[organization]-[module]-[artifact](-[classifier])--[revision].[ext]" />
                           
                           <script language="javascript"> <![CDATA[
                             importClass(java.io.File);
