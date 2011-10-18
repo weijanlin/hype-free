@@ -5,5 +5,6 @@
         <dependency org="commons-lang" name="commons-lang" rev="2.6" conf="*->*,!sources,!javadoc" />
         <dependency org="junit" name="junit" rev="4.8.2" conf="*->*,!sources,!javadoc" />
         <dependency org="log4j" name="log4j" rev="1.2.16" conf="*->*,!sources,!javadoc" />
+        <dependency org="com.google.code.gson" name="gson" rev="1.7.2" conf="*->*,!sources,!javadoc" />
     </dependencies>
 </ivy-module>
