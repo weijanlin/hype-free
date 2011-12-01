@@ -6,7 +6,7 @@ abstract class AbstractClient {
 	protected final static int WARMUP_CYCLES = 1000;
 	protected final static int TEST_CYCLES = 100000;
 	protected final static int TEST_RUNS = 1000;
-	private final static int MAX_CONNECTIONS = 10;
+	private final static int MAX_CONNECTIONS = 8;
 	protected String netIf;
 	protected int port;
 		
@@ -41,11 +41,11 @@ abstract class AbstractClient {
 		long mean = min + (sum / latencies.length); 
 		
 		System.out.println("Item count: " + latencies.length + "\n"
-			+ "\tMin: " + String.format("%.2f [us]", min / 2.0 / 1000.0) + "\n"
-			+ "\tMedian: " + String.format("%.2f [us]", latencies[_50th] / 2.0 / 1000.0) + "\n"
-			+ "\tMean: " + String.format("%.2f [us]", mean / 2.0 / 1000.0) + "\n"
-			+ "\t99th percentile: " + String.format("%.2f [us]", latencies[_99th] / 2.0 / 1000.0) + "\n"
-			+ "\tMax: " + String.format("%.2f [us]", max / 2.0 / 1000.0) + "\n"
+			+ "Min: " + String.format("%.2f", min / 2.0 / 1000.0) + "\n"
+			+ "Median: " + String.format("%.2f", latencies[_50th] / 2.0 / 1000.0) + "\n"
+			+ "Mean: " + String.format("%.2f", mean / 2.0 / 1000.0) + "\n"
+			+ "99th %: " + String.format("%.2f", latencies[_99th] / 2.0 / 1000.0) + "\n"
+			+ "Max: " + String.format("%.2f", max / 2.0 / 1000.0) + "\n"
 			+ "\n");
 	}
 		

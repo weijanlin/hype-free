@@ -8,7 +8,7 @@ import java.nio.channels.*;
 import java.nio.channels.spi.*;
 
 public final class NIOClient extends AbstractClient {
-	private final static boolean TRY_PARAMETER_TUNING = true;
+	private final static boolean TRY_PARAMETER_TUNING = false;
 
 	private SocketChannel[] sockets;
 	private Selector selector;

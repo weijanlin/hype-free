@@ -8,13 +8,13 @@ import java.nio.channels.*;
 import java.nio.channels.spi.*;
 
 public final class NIOServer extends AbstractServer {
-	private final static boolean TRY_PARAMETER_TUNING = true;
+	private final static boolean TRY_PARAMETER_TUNING = false;
 	
 	@Override
 	protected void doAccept(String netIf, int port) throws Exception {
 		ServerSocketChannel server = ServerSocketChannel.open();
 		server.configureBlocking(false);
-		server.bind(new InetSocketAddress(netIf, port));
+		server.socket().bind(new InetSocketAddress(netIf, port));
 		if (TRY_PARAMETER_TUNING) {
 			server.socket().setPerformancePreferences(0, 1, 0);
 		}
