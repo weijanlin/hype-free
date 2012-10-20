@@ -42,13 +42,15 @@
 				<section>
 					<h1>Google App Engine</h1>
 					<h3>From Zero to Hero</h3>
+					
+					<p><a rel="license" href="http://creativecommons.org/licenses/by-sa/3.0/deed.en_US"><img alt="Creative Commons License" style="border-width:0" src="http://i.creativecommons.org/l/by-sa/3.0/88x31.png" /></a><br /><small>This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/3.0/deed.en_US">Creative Commons Attribution-ShareAlike 3.0 Unported License</a>.</small></p>
 				</section>
 
 				<section>
 				  <h2>Agenda</h2>
 				  <ul>
 				    <li>Introduction</li>
-				    <li>Building a blog on GAE</li>
+				    <li>Building a wiki on GAE</li>
 				    <li>Advanced GAE patterns</li>
 				  </ul>
 				</section>
@@ -102,7 +104,7 @@
 				    <ul>
 				      <li>Code runner
 				        <ul>
-				          <li>Python / JVM / Go</li>
+				          <li>Python / JVM* / Go</li>
 				          <li>Sandboxed</li>
 				          <li>Frontend / backend</li>
 				        </ul>
@@ -115,12 +117,14 @@
 				      <li>Cron jobs</li>
 				      <li>DDoS filtering</li>
 				    </ul>
+				    
+				    <p><small>* JRuby/RoR, Groovy on Grails, Scala, PHP (Quercus)</small></p>
 				  </section>
 
 				  <section>
 				    <h2>Dashboard</h2>
 				    <ul>
-				      <li>Transparent* deployment</li>
+				      <li>Transparent deployment</li>
 				      <li>Application versioning</li>
 				      <li>A/B testing</li>
 				      <li>"Pretty charts"</li>
@@ -138,8 +142,59 @@
 				      <li>Google Compute Engine <sup>(beta)</sup></li>
 				      <li>Search <sup>(beta)</sup></li>
 				      <li>SSL <sup>(beta)</sup></li>
-				      <li>...</li>
+				      <li>... <a href="https://developers.google.com/appengine/docs/python/apis">(even more)</a></li>
 				    </ul>
+				  </section>
+				</section>
+				
+				<section>
+				  <h2>Building a simple wiki<h2>
+				  <p>Demo time!</p>
+				  <p><a href="https://try-appengine.appspot.com/bliss/">Project Bliss</a></p>
+				  <p><small>Plug: We (Udacity) have <a href="http://www.udacity.com/overview/Course/cs253/CourseRev/apr2012">a course</a> for that taught by Steve Huffman of Reddit</small></p>
+				</section>
+				
+				<section>
+				  <h2>Some more goodies</h2>
+				  <ul>
+				    <li>Almost all of the components are open-source</li>
+				    <li>Free tier!</li>
+				    <li>Run it on your own servers!*</li>
+				    <li>It can "just work"</li>
+				  </ul>
+				  <p><small>*Via <a href="https://code.google.com/p/appscale/">AppScale</a>, a 3rd party open source project</small></p>
+				</section>
+				
+				<section>
+				  <h2>Not a silver bullet!</h2>
+				  <ul>
+				    <li>Exposes failures of distributed systems early</li>
+				    <li>Need to write client-side code for error handling (retry, notification)</li>
+				    <li>Sometimes hard to debug</li>
+				    <li>Blocked in certain countries</li>
+				    <li>Need to be aware of <a href="https://developers.google.com/appengine/docs/quotas">quotas</a>, <a href="https://developers.google.com/appengine/docs/java/backends/overview">deadlines</a>, <a href="https://developers.google.com/appengine/articles/scaling/contention">limits</a>, ...</li>
+				    <li>Follow your logs religiously* and fix issues found</li>
+				    <li>Once data is in the GAE datastore, it can be hard to bulk-extract.</li>
+				  </ul>
+				  <p><small>* Especially because they are overwritten periodically</small></p>
+				</section>
+				
+				<section>
+				  <section>
+				    <h2>Advanced techniques</h2>
+				  </section>
+				  
+				  <section>
+				    <h2>Appstats / gae_mini_profiler</h2>
+				  </section>
+				  
+				  <section>
+				    <h2>Think different</h2>
+				    <h3>Example: sharded counters</h3>
+				  </section>
+				  
+				  <section>
+				    <h2>For Python: look at NDB</h2>
 				  </section>
 				</section>
 				
@@ -161,7 +216,8 @@
 				  
 					  <h2>THE END</h2>
 					  <h3>BY Attila-Mihaly Balazs</h3>
-					
+
+            <p><a href="https://code.google.com/p/hype-free/source/browse/#svn%2Ftrunk%2Fgeekmeet-ro%2Fgae_presentation">Slides and source</a></p>					  
 					  <p><a href="mailto:dify.ltd@gmail.com">dify.ltd@gmail.com</a></p>
 					  <p><a href="http://hype-free.blogspot.com/">Blog</a></p>
 					  <p><a href="https://www.facebook.com/cdman83">Facebook</a></p>
