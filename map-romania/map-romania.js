@@ -91,8 +91,7 @@ var BT = rsr.path("M1291.7806 16.467546C1276.84449542 25.25648925 1256.85580458 
 BT.attr(getAttr('BT')).data('id', 'BT');
 rsr.scaleAll(initialScale);
 return {
-  'paper': rsr,
-  'countyByName': {AB: AB, AG: AG, AR: AR, B: B, BC: BC, BH: BH, BN: BN, BR: BR, BT: BT, BV: BV, BZ: BZ, CJ: CJ, CL: CL, CS: CS, CT: CT, CV: CV, DB: DB, DJ: DJ, GJ: GJ, GL: GL, GR: GR, HD: HD, HR: HR, IF: IF, IL: IL, IS: IS, MH: MH, MM: MM, MS: MS, NT: NT, OT: OT, PH: PH, SB: SB, SJ: SJ, SM: SM, SV: SV, TL: TL, TM: TM, TR: TR, VL: VL, VN: VN, VS: VS, },
-  'counties': [AB, AG, AR, B, BC, BH, BN, BR, BT, BV, BZ, CJ, CL, CS, CT, CV, DB, DJ, GJ, GL, GR, HD, HR, IF, IL, IS, MH, MM, MS, NT, OT, PH, SB, SJ, SM, SV, TL, TM, TR, VL, VN, VS],
+  paper: rsr,
+  counties: {AB: AB, AG: AG, AR: AR, B: B, BC: BC, BH: BH, BN: BN, BR: BR, BT: BT, BV: BV, BZ: BZ, CJ: CJ, CL: CL, CS: CS, CT: CT, CV: CV, DB: DB, DJ: DJ, GJ: GJ, GL: GL, GR: GR, HD: HD, HR: HR, IF: IF, IL: IL, IS: IS, MH: MH, MM: MM, MS: MS, NT: NT, OT: OT, PH: PH, SB: SB, SJ: SJ, SM: SM, SV: SV, TL: TL, TM: TM, TR: TR, VL: VL, VN: VN, VS: VS, },
 };
 }
