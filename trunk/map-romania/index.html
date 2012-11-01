@@ -11,31 +11,34 @@
   <script>
   (function () {
     var map = drawMap("map", 0.5, {fill: '#003366', stroke: '#fff', 'stroke-width': '5'});
-    var bucharest = map.countyByName.B;
+    var bucharest = map.counties.B;
     var mouseoverAnim = Raphael.animation({transform: 's1.2'}, 200);
     var mouseoutAnim = Raphael.animation({transform: 's1.05'}, 200);
     var clickAnim = Raphael.animation({fill: 'green'}, 200);
-    for (var i = 0; i < map.counties.length; i++) {
-      var el = map.counties[i];
-      el.mouseover(function() {
-          this.toFront();
-          bucharest.toFront();
-          this.attr({
-              cursor: 'pointer',
-              fill: '#990000',
-              stroke: '#fff',
-          });
-          this.animate(mouseoverAnim);
-      });
-      el.mouseout(function() {
-          this.animate(mouseoutAnim);
-          this.attr({
-              fill: '#003366'
-          });
-      });
-      el.click(function() {
-          this.animate(clickAnim);
-      });
+    for (var countyName in map.counties) {
+      (function (name) {
+        var el = map.counties[name];
+        el.mouseover(function() {
+            this.toFront();
+            bucharest.toFront();
+            this.attr({
+                cursor: 'pointer',
+                fill: '#990000',
+                stroke: '#fff',
+            });
+            this.animate(mouseoverAnim);
+        });
+        el.mouseout(function() {
+            this.animate(mouseoutAnim);
+            this.attr({
+                fill: '#003366'
+            });
+        });
+        el.click(function() {
+            this.animate(clickAnim);
+            console.log(name);
+        });
+      })(countyName);
     }
   })();
   </script>
