@@ -4,24 +4,27 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 final class GuardedExecutor implements Executor {
-	private final ActivityWatcher activityWatcher;
+	private final ActivityCollector activityCollector;
 	private final Executor executor;
 
-	GuardedExecutor(ActivityWatcher activityWatcher) {
-		this.activityWatcher = activityWatcher;
+	GuardedExecutor(ActivityCollector activityCollector) {
+		this.activityCollector = activityCollector;
 		this.executor = Executors.newSingleThreadExecutor();
 	}
 	
 	@Override
 	public void execute(final Runnable command) {
-		activityWatcher.before();
+		activityCollector.before();
 		executor.execute(new Runnable() {
 			@Override
 			public void run() {
 				try {
 					command.run();
+				} catch (Throwable t) {
+					activityCollector.collectException(t);
+					throw t;
 				} finally {
-					activityWatcher.after();
+					activityCollector.after();
 				}
 			}
 		});
