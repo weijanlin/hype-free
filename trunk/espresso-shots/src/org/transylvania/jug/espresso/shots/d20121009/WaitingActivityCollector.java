@@ -26,6 +26,7 @@ final class WaitingActivityCollector implements ActivityWatcher, ActivityCollect
 	public void collectException(Throwable t) {
 		synchronized (lock) {
 			this.t = t;
+			lock.notifyAll();
 		}
 	}
 
